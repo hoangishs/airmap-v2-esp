@@ -8,7 +8,6 @@ bool isGetTime = true;
 bool isPublish = false;
 
 uint32_t lastGetTime = 0;
-uint32_t lastGetData = 0;
 uint32_t lastMqttReconnect = 0;
 
 char topic[25];
@@ -46,19 +45,19 @@ void loop()
     dataBuffer[dataByteCount] = Serial.read();
     if (dataBuffer[0] == 8)
       dataByteCount++;
-  if(dataByteCount==2)
-	  if(dataBuffer[1]==11)
-	  {
-		  dataByteCount=0;
-		  uint8_t espMacAddress[6];
-  WiFi.macAddress(espMacAddress);
-  Serial.write(8);
-  Serial.write(8);
-  Serial.write(0);
-  Serial.write(espMacAddress[3]);
-  Serial.write(espMacAddress[4]);
-  Serial.write(espMacAddress[5]);
-	  }
+    if (dataByteCount == 2)
+      if (dataBuffer[1] == 11)
+      {
+        dataByteCount = 0;
+        uint8_t espMacAddress[6];
+        WiFi.macAddress(espMacAddress);
+        Serial.write(8);
+        Serial.write(8);
+        Serial.write(0);
+        Serial.write(espMacAddress[3]);
+        Serial.write(espMacAddress[4]);
+        Serial.write(espMacAddress[5]);
+      }
     if (dataByteCount == PACKET_SIZE)
     {
       dataByteCount = 0;
@@ -87,6 +86,20 @@ void loop()
         //if got time
         lastGetTime = millis();
         isGetTime = false;
+
+        uint8_t time2arduino_buff[11] = {8, 11, dateTime.hour, dateTime.minute, dateTime.second, dateTime.year - 2000, dateTime.month, dateTime.day, dateTime.dayofWeek, 0, 0};
+        uint16_t a = 0;
+        for (uint8_t i = 0; i < 9; i++)
+        {
+          a += time2arduino_buff[i];
+        }
+        time2arduino_buff[9] = a / 256;
+        time2arduino_buff[10] = a % 256;
+        for (uint8_t i = 0; i < 11; i++)
+        {
+          Serial.write(time2arduino_buff[i]);
+        }
+
       }
     }
     else if (isPublish)
@@ -96,7 +109,22 @@ void loop()
       {
         DEBUG.print(" - publish:.. ");
         uint32_t epochTime = 0;
-        
+
+        struct tm t;
+        time_t epoch;
+
+        t.tm_hour = dataBuffer[16];
+        t.tm_min = dataBuffer[17];
+        t.tm_sec = dataBuffer[0];
+        t.tm_mday = dataBuffer[18];          // Day of the month
+        t.tm_mon = dataBuffer[19] - 1;         // Month, 0 - jan
+        t.tm_year = dataBuffer[20] + 100;
+        t.tm_isdst = -1;        // Is DST on? 1 = yes, 0 = no, -1 = unknown
+
+        epoch = mktime(&t);
+
+        epochTime = epoch;
+
         char mes[256] = {0};
         sprintf(mes, "{\"data\":{\"tem\":\"%d\",\"humi\":\"%d\",\"pm1\":\"%d\",\"pm2p5\":\"%d\",\"pm10\":\"%d\",\"time\":\"%d\"}}", dataBuffer[2], dataBuffer[3], ((dataBuffer[4] << 8) + dataBuffer[5]), ((dataBuffer[6] << 8) + dataBuffer[7]), ((dataBuffer[8] << 8) + dataBuffer[9]), epochTime);
         if (mqttClient.publish(topic, mes, true))
@@ -112,10 +140,10 @@ void loop()
         DEBUG.println(" - mqtt reconnect ");
         mqttClient.connect(espID);
       }
-	  else if (millis()-lastGetTime>300000)
-	  {
-		  isGetTime=true;
-	  }
+      else if (millis() - lastGetTime > 300000)
+      {
+        isGetTime = true;
+      }
     }
   }
 }
