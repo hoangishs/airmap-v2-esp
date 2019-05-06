@@ -43,10 +43,14 @@ void loop()
   if (Serial.available() > 0)
   {
     dataBuffer[dataByteCount] = Serial.read();
+    //Serial.print(dataByteCount);
+    //Serial.print(" ");
+    //Serial.println(dataBuffer[dataByteCount]);
     if (dataBuffer[0] == 8)
       dataByteCount++;
     if (dataByteCount == 2)
-      if (dataBuffer[1] == 11)
+    {
+      if (dataBuffer[1] == 8)
       {
         dataByteCount = 0;
         uint8_t espMacAddress[6];
@@ -57,11 +61,13 @@ void loop()
         Serial.write(espMacAddress[3]);
         Serial.write(espMacAddress[4]);
         Serial.write(espMacAddress[5]);
+        //Serial.println("id");
       }
+    }
     if (dataByteCount == PACKET_SIZE)
     {
       dataByteCount = 0;
-      if (dataBuffer[1] == 77)
+      if (dataBuffer[1] == 11)
       {
         uint16_t check = 0;
         for (uint8_t i = 0; i < PACKET_SIZE - 2; i++)
@@ -98,6 +104,7 @@ void loop()
         for (uint8_t i = 0; i < 11; i++)
         {
           Serial.write(time2arduino_buff[i]);
+          //Serial.println("time");
         }
 
       }
